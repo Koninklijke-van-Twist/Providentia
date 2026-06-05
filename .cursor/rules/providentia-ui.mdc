@@ -1,0 +1,20 @@
+---
+description: Providentia UI-regels en huisstijl
+globs: web/**/*.{php,css,html}
+alwaysApply: false
+---
+
+# Providentia UI
+
+- Geen zware frameworks zonder expliciet verzoek.
+- Gebruik bestaande favicon/manifest op elke HTML-pagina.
+- Gebruik op de hoofdpagina altijd `logo-website.png`.
+- Gebruik `brand.css` voor kleuren en lettertypen.
+
+## Huisstijl
+
+- Perkins blauw (donkere accenten): `#00529B` — Museo Sans Display Black
+- Helder blauw (hoofdkleur): `#0099cc` — Montserrat Bold
+- Lichtblauw (lichte accenten): `#33ccff` — Montserrat Bold
+- Pagina's zijn grotendeels wit; blauw voor headers, knoppen en accenten.
+- Tabellen en lijnen mogen zwart zijn; lichtere blauwtinten op tabelregels zijn prima.

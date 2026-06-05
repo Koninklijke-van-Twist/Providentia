@@ -1,0 +1,26 @@
+---
+description: Providentia architectuur, scope en beschermde bestanden
+alwaysApply: true
+---
+
+# Providentia architectuur
+
+- De applicatie draait volledig vanuit `web/` en wordt gepubliceerd onder `https://sleutels.kvt.nl/providentia`.
+- Gebruik relatieve links (`index.php`, `odata.php?...`) of absolute paden vanaf `/providentia/...`.
+- De app is mobile-first; nieuwe UI moet eerst goed werken op telefoonschermen.
+- Hoofdflow staat in `web/index.php`; OData-helpers in eigen bestanden (bijv. `web/providentia_data.php`).
+- Bedrijfskeuze wordt per gebruiker persistent opgeslagen (localStorage).
+
+## Niet wijzigen
+
+- `web/logincheck.php` niet aanpassen.
+- `web/odata.php` niet aanpassen.
+- `web/auth.php` alleen aanpassen na expliciete gebruikersvraag.
+
+## Data
+
+- Planningsvoorstellen komen uit BC OData entity `Planningsvoorstellen`.
+- Extra velden eerst verifiëren in `BC Webservices.txt`.
+- Alleen benodigde kolommen opvragen via `$select` voor performance.
+- Vang OData-fouten af en toon een korte gebruikersvriendelijke melding.
+- Gebruik cache-widget via `injectTimerHtml(...)` uit `odata.php`.

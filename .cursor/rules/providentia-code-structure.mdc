@@ -1,0 +1,21 @@
+---
+description: PHP/JS sectievolgorde en refactorregels voor Providentia
+globs: web/**/*.{php,js}
+alwaysApply: false
+---
+
+# Code-structuur (PHP en JS)
+
+Gebruik bij refactors deze sectievolgorde, alleen als de sectie inhoud heeft:
+
+1. `Includes/requires`
+2. `Constants`
+3. `Variabelen`
+4. `Functies`
+5. `Page load`
+
+- Gebruik blokcomments zoals `/**` + `* Functies` + `*/`.
+- Voeg geen lege secties toe.
+- Refactors wijzigen geen functioneel gedrag.
+- Top-level uitvoerbare code hoort in `Page load`.
+- Maximaal 1 class per bestand; bestandsnaam = classnaam.
