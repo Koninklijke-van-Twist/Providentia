@@ -121,9 +121,23 @@ function odata_get_json(string $url, array $auth): array
     return $json;
 }
 
+/**
+ * Pad naar auth.php. Een test zet $GLOBALS['odata_auth_php_path'] naar een
+ * tempfile zodat web/auth.php niet overschreven hoeft te worden.
+ */
+function odata_auth_php_path(): string
+{
+    $override = $GLOBALS['odata_auth_php_path'] ?? '';
+    if (is_string($override) && trim($override) !== '') {
+        return $override;
+    }
+
+    return __DIR__ . '/auth.php';
+}
+
 function build_cache_key(string $url, array $auth): string
 {
-    require __DIR__ . "/auth.php";
+    require odata_auth_php_path();
     require_once __DIR__ . "/auth_helper.php";
     $user = (string) ($auth['user'] ?? '');
     $envFragment = auth_get_environment_key_fragment();

@@ -25,7 +25,7 @@ $mockPort = 18941;
 $mockLog = sys_get_temp_dir() . '/providentia-mimir-mock.log';
 $mockScript = sys_get_temp_dir() . '/providentia-mimir-mock.php';
 $authPath = dirname(__DIR__) . '/auth.php';
-$authBackup = null;
+$tempAuthPath = sys_get_temp_dir() . '/providentia-mimir-auth.php';
 
 /**
  * Functies
@@ -121,23 +121,21 @@ PHP;
 }
 
 /**
- * Zet auth.php terug. Verwijdert het bestand alleen als deze test het zelf heeft aangemaakt.
+ * Inhoud van web/auth.php, of null als het bestand er niet is.
+ * De test schrijft dit bestand nooit; de snapshot bewijst dat.
  */
-function test_restore_auth_php(string $path, bool $existedBefore, ?string $backup, bool $written): void
+function test_auth_php_snapshot(string $path): ?string
 {
-    if (!$written) {
-        return;
+    if (!is_file($path)) {
+        return null;
     }
 
-    if ($existedBefore) {
-        if (!is_string($backup)) {
-            return;
-        }
-        file_put_contents($path, $backup);
-        return;
+    $raw = file_get_contents($path);
+    if (!is_string($raw)) {
+        throw new RuntimeException('web/auth.php kon niet worden gelezen; de test raakt het bestand niet aan.');
     }
 
-    @unlink($path);
+    return $raw;
 }
 
 function test_mock_requests(): array
@@ -164,32 +162,12 @@ test_assert(
     'default mimir base',
     odata_mimir_base_url() === 'https://sleutels.kvt.nl/mimir/api'
 );
+test_assert(
+    'auth-pad wijst standaard naar web/auth.php',
+    odata_auth_php_path() === $authPath
+);
 
-$restoreProbe = sys_get_temp_dir() . '/providentia-auth-restore-probe.php';
-$restoreCreated = sys_get_temp_dir() . '/providentia-auth-restore-created.php';
-file_put_contents($restoreProbe, "<?php\n\$marker = 'original';\n");
-test_restore_auth_php($restoreProbe, true, "<?php\n\$marker = 'original';\n", false);
-test_assert(
-    'restore laat bestaand bestand met rust als de test niet schreef',
-    is_file($restoreProbe) && str_contains((string) file_get_contents($restoreProbe), 'original')
-);
-file_put_contents($restoreProbe, "<?php\n\$marker = 'replaced';\n");
-test_restore_auth_php($restoreProbe, true, "<?php\n\$marker = 'original';\n", true);
-test_assert(
-    'restore zet backup terug nadat de test schreef',
-    is_file($restoreProbe) && str_contains((string) file_get_contents($restoreProbe), 'original')
-);
-@unlink($restoreProbe);
-file_put_contents($restoreCreated, "<?php\n\$marker = 'created';\n");
-test_restore_auth_php($restoreCreated, false, null, true);
-test_assert('restore verwijdert alleen een door de test aangemaakt bestand', !is_file($restoreCreated));
-file_put_contents($restoreCreated, "<?php\n\$marker = 'keep';\n");
-test_restore_auth_php($restoreCreated, true, null, true);
-test_assert(
-    'restore wist geen bestaand bestand zonder leesbare backup',
-    is_file($restoreCreated) && str_contains((string) file_get_contents($restoreCreated), 'keep')
-);
-@unlink($restoreCreated);
+$authSnapshot = test_auth_php_snapshot($authPath);
 
 $baseUrl = 'https://bc.example';
 $spaceUrl = providentia_company_entity_url_with_query(
@@ -269,14 +247,6 @@ $mimirBase = 'http://127.0.0.1:' . $mockPort . '/mimir/api';
 $baseUrl = '';
 unset($GLOBALS['auth_list'], $GLOBALS['environment'], $GLOBALS['auth']);
 test_reset_discovery_cache();
-
-$authExistedBefore = is_file($authPath);
-$authBackup = null;
-if ($authExistedBefore) {
-    $authRaw = file_get_contents($authPath);
-    $authBackup = is_string($authRaw) ? $authRaw : null;
-}
-$authWritten = false;
 
 try {
     $apostropheUrl = providentia_company_entity_url_with_query(
@@ -430,11 +400,10 @@ try {
         ],
     ];
     $auth = $auth_list['Production'];
-    if ($authExistedBefore && !is_string($authBackup)) {
-        throw new RuntimeException('Bestaande auth.php kon niet worden gelezen; test wijzigt het bestand niet.');
-    }
-    $authWritten = true;
-    file_put_contents($authPath, "<?php\n\$baseUrl = " . var_export($baseUrl, true) . ";\n\$environment = 'Production';\n\$auth_list = " . var_export($auth_list, true) . ";\n\$mimirApi = '';\n");
+    // BC-cachekey doet require van auth.php. Dat bestand blijft met rust; de test wijst naar een tempfile.
+    file_put_contents($tempAuthPath, "<?php\n\$baseUrl = " . var_export($baseUrl, true) . ";\n\$environment = 'Production';\n\$auth_list = " . var_export($auth_list, true) . ";\n\$mimirApi = '';\n");
+    $GLOBALS['odata_auth_php_path'] = $tempAuthPath;
+    test_assert('BC-fetch gebruikt de tempfile, niet web/auth.php', odata_auth_php_path() === $tempAuthPath);
     test_reset_discovery_cache();
     @unlink($mockLog);
 
@@ -453,12 +422,17 @@ try {
         }
     }
     test_assert('BC-fetch raakt Mímir niet', $bcHitMimir === false);
+    test_assert(
+        'web/auth.php onaangeroerd',
+        test_auth_php_snapshot($authPath) === $authSnapshot
+    );
 } finally {
     if (is_resource($server)) {
         proc_terminate($server);
         proc_close($server);
     }
-    test_restore_auth_php($authPath, $authExistedBefore, $authBackup, $authWritten);
+    unset($GLOBALS['odata_auth_php_path']);
+    @unlink($tempAuthPath);
     @unlink($mockScript);
     @unlink($mockLog);
 }
