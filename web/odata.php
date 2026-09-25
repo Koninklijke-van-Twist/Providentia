@@ -18,10 +18,20 @@ function consolelog($text)
     file_put_contents('php://stdout', $text);
 }
 
+// Mímir-client staat in mimir_odata.php. Deze afslag houdt elke odata_get_all-caller op hetzelfde pad.
+require_once __DIR__ . '/mimir_odata.php';
+
 function odata_get_all(string $url, array $auth, $ttlSeconds = 300): array
 {
     consolelog("Fetching $url\n");
-    $ttlSeconds = max(1, (int) $ttlSeconds);
+    $ttlSeconds = max(0, (int) $ttlSeconds);
+
+    if (odata_mimir_api_key() !== '') {
+        // Mímir beheert de BC-cache (max_age); Providentia-filecache wordt overgeslagen.
+        return odata_mimir_fetch_all($url, $ttlSeconds === 0 ? 3600 : $ttlSeconds);
+    }
+
+    $ttlSeconds = max(1, $ttlSeconds);
     maybe_cleanup_expired_cache_files();
 
     $cacheKey = build_cache_key($url, $auth);
@@ -111,9 +121,23 @@ function odata_get_json(string $url, array $auth): array
     return $json;
 }
 
+/**
+ * Pad naar auth.php. Een test zet $GLOBALS['odata_auth_php_path'] naar een
+ * tempfile zodat web/auth.php niet overschreven hoeft te worden.
+ */
+function odata_auth_php_path(): string
+{
+    $override = $GLOBALS['odata_auth_php_path'] ?? '';
+    if (is_string($override) && trim($override) !== '') {
+        return $override;
+    }
+
+    return __DIR__ . '/auth.php';
+}
+
 function build_cache_key(string $url, array $auth): string
 {
-    require __DIR__ . "/auth.php";
+    require odata_auth_php_path();
     require_once __DIR__ . "/auth_helper.php";
     $user = (string) ($auth['user'] ?? '');
     $envFragment = auth_get_environment_key_fragment();
