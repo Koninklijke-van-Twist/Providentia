@@ -274,7 +274,8 @@ function auth_fetch_companies_for_environment_via_curl(string $url, array $auth)
 }
 
 /**
- * Company-discovery via Mímir companies.php (geen BC auth_list/baseUrl).
+ * Company-discovery via Mímir companies.php.
+ * Bij een Mímir-fout vult odata_mimir_companies_as_rows dezelfde rijen vanaf BC.
  */
 function auth_discover_companies_via_mimir(): array
 {
@@ -390,7 +391,7 @@ function auth_discover_companies_via_mimir(): array
  */
 function auth_discover_companies_across_active_environments(int $ttlSeconds = 300): array
 {
-    // Mímir: companies + environments uit Mímir API — geen $auth_list/$baseUrl nodig.
+    // Mímir eerst. Faalt companies.php, dan levert odata_mimir_companies_as_rows de pre-Mímir BC-lijst.
     if (auth_mimir_enabled()) {
         return auth_discover_companies_via_mimir();
     }
