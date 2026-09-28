@@ -260,7 +260,27 @@ function odata_bc_auth_for_environment(?string $env): ?array
     return null;
 }
 
-function odata_bc_auth_for_fallback(array $passed): ?array
+function odata_bc_preserved_auth(): ?array
+{
+    $preserved = $GLOBALS['odata_bc_preserved_auth'] ?? null;
+    if (odata_auth_is_usable($preserved)) {
+        return $preserved;
+    }
+    return null;
+}
+
+/**
+ * Bewaart de oorspronkelijke $auth voordat Mímir-context die op [] zet.
+ */
+function odata_bc_remember_auth_for_fallback($candidate): void
+{
+    if (!odata_auth_is_usable($candidate) || odata_bc_preserved_auth() !== null) {
+        return;
+    }
+    $GLOBALS['odata_bc_preserved_auth'] = $candidate;
+}
+
+function odata_bc_configured_auth(array $passed): ?array
 {
     if (odata_auth_is_usable($passed)) {
         return $passed;
@@ -268,6 +288,34 @@ function odata_bc_auth_for_fallback(array $passed): ?array
     global $auth;
     if (isset($auth) && odata_auth_is_usable($auth)) {
         return $auth;
+    }
+    return odata_bc_preserved_auth();
+}
+
+function odata_bc_auth_list_has_entries(): bool
+{
+    global $auth_list;
+    return isset($auth_list) && is_array($auth_list) && $auth_list !== [];
+}
+
+function odata_bc_env_matches_primary(?string $env): bool
+{
+    if ($env === null) {
+        return false;
+    }
+    $candidate = trim($env);
+    if ($candidate === '' || strcasecmp($candidate, 'mimir') === 0) {
+        return false;
+    }
+    $primary = odata_bc_environment();
+    return is_string($primary) && strcasecmp($candidate, $primary) === 0;
+}
+
+function odata_bc_auth_for_fallback(array $passed): ?array
+{
+    $configured = odata_bc_configured_auth($passed);
+    if ($configured !== null) {
+        return $configured;
     }
     $fromEnv = odata_bc_auth_for_environment(odata_bc_environment());
     if ($fromEnv !== null) {
@@ -285,7 +333,11 @@ function odata_bc_auth_for_fallback(array $passed): ?array
 }
 
 /**
- * Auth van het environment. Alleen als het bedrijf onbekend is, $auth of de primaire env.
+ * Auth voor directe BC. Eigen auth_list-entry wint.
+ * Zonder lijst, of op de primaire environment, $auth (ook als het bedrijf bekend is).
+ * Een ander environment zonder entry levert null; de aanroeper gooit de Mímir-fout.
+ *
+ * @param bool $companyKnown Blijft in de signature voor bestaande aanroepers.
  */
 function odata_bc_auth_for_request(?string $env, bool $companyKnown, array $passed): ?array
 {
@@ -293,10 +345,10 @@ function odata_bc_auth_for_request(?string $env, bool $companyKnown, array $pass
     if ($fromList !== null) {
         return $fromList;
     }
-    if ($companyKnown) {
-        return null;
+    if (!odata_bc_auth_list_has_entries() || odata_bc_env_matches_primary($env)) {
+        return odata_bc_configured_auth($passed);
     }
-    return odata_bc_auth_for_fallback($passed);
+    return null;
 }
 
 /**
@@ -398,6 +450,10 @@ function odata_mimir_log_fallback(Throwable $exception): void
                 $redactions[] = $entry['pass'];
             }
         }
+    }
+    $preservedAuth = odata_bc_preserved_auth();
+    if ($preservedAuth !== null && isset($preservedAuth['pass']) && is_string($preservedAuth['pass']) && $preservedAuth['pass'] !== '') {
+        $redactions[] = $preservedAuth['pass'];
     }
     foreach ($redactions as $secret) {
         $message = str_replace($secret, '[redacted]', $message);
@@ -680,6 +736,9 @@ function odata_direct_companies_as_rows(?string $environmentFilter = null): arra
             $auth = odata_bc_auth_for_request($env, false, []);
         }
         if ($auth === null) {
+            if ($environmentFilter !== null && trim($environmentFilter) !== '' && strcasecmp(trim($environmentFilter), 'mimir') !== 0) {
+                odata_rethrow_mimir();
+            }
             continue;
         }
 
