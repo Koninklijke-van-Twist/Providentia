@@ -64,7 +64,8 @@ function providentia_company_entity_url_with_query(string $company, string $enti
     }
 
     $base = trim((string) ($baseUrl ?? ''));
-    // Mímir-modus: lege $baseUrl blijft geldig; odata_get_all vertaalt het pad.
+    // Mímir-modus: lege $baseUrl blijft geldig zolang Mímir antwoordt.
+    // Na een Mímir-fout herschrijft de directe fallback het pad met $baseUrl uit auth.php.
     if ($base === '' && !(function_exists('auth_mimir_enabled') && auth_mimir_enabled())) {
         throw new RuntimeException('baseUrl ontbreekt in auth.php.');
     }

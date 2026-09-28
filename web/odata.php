@@ -18,7 +18,7 @@ function consolelog($text)
     file_put_contents('php://stdout', $text);
 }
 
-// Mímir-client staat in mimir_odata.php. Deze afslag houdt elke odata_get_all-caller op hetzelfde pad.
+// Mímir-client staat in mimir_odata.php. Faalt Mímir, dan gebruikt odata_get_all de directe BC-route hieronder.
 require_once __DIR__ . '/mimir_odata.php';
 
 function odata_get_all(string $url, array $auth, $ttlSeconds = 300): array
@@ -26,12 +26,32 @@ function odata_get_all(string $url, array $auth, $ttlSeconds = 300): array
     consolelog("Fetching $url\n");
     $ttlSeconds = max(0, (int) $ttlSeconds);
 
-    if (odata_mimir_api_key() !== '') {
-        // Mímir beheert de BC-cache (max_age); Providentia-filecache wordt overgeslagen.
-        return odata_mimir_fetch_all($url, $ttlSeconds === 0 ? 3600 : $ttlSeconds);
+    if (odata_mimir_enabled()) {
+        return odata_mimir_or_direct(
+            static function () use ($url, $ttlSeconds): array {
+                // Mímir beheert de BC-cache (max_age); Providentia-filecache wordt overgeslagen.
+                return odata_mimir_fetch_all_impl($url, $ttlSeconds === 0 ? 3600 : $ttlSeconds);
+            },
+            static function () use ($url, $auth, $ttlSeconds): array {
+                $directAuth = odata_bc_auth_for_fallback($auth) ?? $auth;
+                return odata_get_all_direct(odata_bc_url_from_odata_url($url), $directAuth, $ttlSeconds);
+            }
+        );
     }
 
-    $ttlSeconds = max(1, $ttlSeconds);
+    return odata_get_all_direct($url, $auth, $ttlSeconds);
+}
+
+/**
+ * Directe BC-OData van vóór de Mímir-migratie: filecache + cURL met $auth.
+ */
+function odata_get_all_direct(string $url, array $auth, $ttlSeconds = 300): array
+{
+    $ttlSeconds = max(1, (int) $ttlSeconds);
+    if (isset($GLOBALS['PROVIDENTIA_ODATA_BC_FETCH']) && is_callable($GLOBALS['PROVIDENTIA_ODATA_BC_FETCH'])) {
+        return $GLOBALS['PROVIDENTIA_ODATA_BC_FETCH']($url, $auth, $ttlSeconds);
+    }
+
     maybe_cleanup_expired_cache_files();
 
     $cacheKey = build_cache_key($url, $auth);
