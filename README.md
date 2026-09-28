@@ -5,3 +5,5 @@ OData-leesacties gaan via Mímir wanneer `$mimirApi` in `web/auth.php` staat. Bl
 Laat die BC-gegevens in `auth.php` naast `$mimirApi` staan. Zonder die gegevens wordt de oorspronkelijke Mímir-fout opnieuw gegooid. Zonder `$mimirApi` blijft alleen de directe BC-route actief. Een voorbeeld staat in `web/auth_TEMPLATE.php`. `auth.php` zelf wordt niet weggeschreven of geback-upt.
 
 `web/index.php` laadt `auth.php` voor elk live verzoek. Er is geen aparte `nightly.php`. CLI- en cron-scripts die `odata.php` includen krijgen dezelfde fallback (lange timeout op de `cli`-SAPI). Ontbreken de BC-variabelen dan nog, dan worden ze alsnog uit `auth.php` gelezen op het moment dat Mímir faalt.
+
+`web/odata.php` blijft verder ongewijzigd. De aanpassing voor deze fallback (directe route en cache-key) is een uitzondering, goedgekeurd door Tim Falken op 2026-09-28.
