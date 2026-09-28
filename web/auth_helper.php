@@ -575,6 +575,11 @@ function auth_set_current_company_context(?string $company, int $ttlSeconds = 30
             }
         }
 
+        // Lege sentinel blijft de returnwaarde; de oorspronkelijke $auth blijft beschikbaar voor de BC-fallback.
+        if ($targetAuth === [] && isset($auth) && function_exists('odata_bc_remember_auth_for_fallback')) {
+            odata_bc_remember_auth_for_fallback($auth);
+        }
+
         $environment = $targetEnvironment;
         $auth = $targetAuth;
 
