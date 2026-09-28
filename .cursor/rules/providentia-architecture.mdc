@@ -14,7 +14,7 @@ alwaysApply: true
 ## Niet wijzigen
 
 - `web/logincheck.php` niet aanpassen.
-- `web/odata.php` niet aanpassen.
+- `web/odata.php` niet aanpassen, behalve de Mímir-fallback (uitzondering Tim Falken, 2026-09-28): de directe BC-route en de cache-key.
 - `web/auth.php` alleen aanpassen na expliciete gebruikersvraag.
 
 ## Data

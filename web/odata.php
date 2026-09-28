@@ -33,7 +33,11 @@ function odata_get_all(string $url, array $auth, $ttlSeconds = 300): array
                 return odata_mimir_fetch_all_impl($url, $ttlSeconds === 0 ? 3600 : $ttlSeconds);
             },
             static function () use ($url, $auth, $ttlSeconds): array {
-                $directAuth = odata_bc_auth_for_fallback($auth) ?? $auth;
+                $target = odata_bc_request_target($url);
+                $directAuth = odata_bc_auth_for_request($target['env'], $target['company_known'], $auth);
+                if ($directAuth === null) {
+                    odata_rethrow_mimir();
+                }
                 return odata_get_all_direct(odata_bc_url_from_odata_url($url), $directAuth, $ttlSeconds);
             }
         );
@@ -155,13 +159,27 @@ function odata_auth_php_path(): string
     return __DIR__ . '/auth.php';
 }
 
+function odata_bc_cache_environment(string $url): string
+{
+    $target = function_exists('odata_bc_request_target') ? odata_bc_request_target($url) : ['env' => null];
+    $env = isset($target['env']) ? trim((string) $target['env']) : '';
+    if ($env === '' || strcasecmp($env, 'mimir') === 0) {
+        $primary = function_exists('odata_bc_environment') ? odata_bc_environment() : null;
+        $env = is_string($primary) ? trim($primary) : '';
+    }
+    if ($env === '' || strcasecmp($env, 'mimir') === 0) {
+        return '';
+    }
+    return $env;
+}
+
 function build_cache_key(string $url, array $auth): string
 {
-    require odata_auth_php_path();
-    require_once __DIR__ . "/auth_helper.php";
+    if (function_exists('odata_load_bc_config_for_fallback')) {
+        odata_load_bc_config_for_fallback();
+    }
     $user = (string) ($auth['user'] ?? '');
-    $envFragment = auth_get_environment_key_fragment();
-    return $url . '|' . $user . '|' . $envFragment;
+    return $url . '|' . $user . '|' . odata_bc_cache_environment($url);
 }
 
 function cache_base_dir(): string
