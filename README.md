@@ -7,3 +7,5 @@ Laat die BC-gegevens in `auth.php` naast `$mimirApi` staan. Zonder die gegevens 
 `web/index.php` laadt `auth.php` voor elk live verzoek. Er is geen aparte `nightly.php`. CLI- en cron-scripts die `odata.php` includen krijgen dezelfde fallback (lange timeout op de `cli`-SAPI). Ontbreken de BC-variabelen dan nog, dan worden ze alsnog uit `auth.php` gelezen op het moment dat Mímir faalt.
 
 `web/odata.php` blijft verder ongewijzigd. De aanpassing voor deze fallback (directe route en cache-key) is een uitzondering, goedgekeurd door Tim Falken op 2026-09-28.
+
+`web/analytics/analytics.sqlite` (en `*.sqlite-*`) blijft op de server staan bij een deploy: de FTP-mirror slaat die bestanden al over. Dezelfde mirror slaat `.htaccess` over, dus een gecommit bestand komt niet mee en een bestaand bestand wordt niet gewist. `analytics.php` schrijft `web/analytics/.htaccess` als die ontbreekt (of vult hem aan als het woord `sqlite` er nog niet in staat), zodat Apache de database weigert en `analytics.php` zelf bereikbaar blijft.
